@@ -1,0 +1,13 @@
+"","Var1","Var2.x","Freq.x","Total.x","Proportion.x","Var2.y","Freq.y","Total.y","Proportion.y"
+"1","B Cells","ground truth",958,52601,0.0182125815098572,"predicted",292,47287,0.00617505868420496
+"2","Dendritic Cells","ground truth",1020,52601,0.0193912663257353,"predicted",144,47287,0.00304523441960793
+"3","Endothelial Cells","ground truth",1485,52601,0.0282314024448204,"predicted",1529,47287,0.0323344682470869
+"4","Fibroblasts","ground truth",3461,52601,0.0657972281895781,"predicted",2663,47287,0.0563156893014994
+"5","Macrophages","ground truth",5455,52601,0.103705252751849,"predicted",5840,47287,0.123501173684099
+"6","NK Cells","ground truth",731,52601,0.0138970742001103,"predicted",0,47287,0
+"7","Photoreceptor Cells","ground truth",24,52601,0.0004562650900173,"predicted",0,47287,0
+"8","Plasma Cells","ground truth",620,52601,0.0117868481587803,"predicted",2,47287,4.22949224945545e-05
+"9","RPE Cells","ground truth",7,52601,0.000133077317921713,"predicted",0,47287,0
+"10","T Cells","ground truth",12665,52601,0.240774890211213,"predicted",14757,47287,0.312073085626071
+"11","Tumor","ground truth",24074,52601,0.457671907378187,"predicted",21944,47287,0.464059889610252
+"12","unassigned","ground truth",2101,52601,0.0399422064219311,"predicted",116,47287,0.00245310550468416

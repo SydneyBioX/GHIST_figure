@@ -1,0 +1,11 @@
+"","Var1","Var2.x","Freq.x","Total.x","Proportion.x","Var2.y","Freq.y","Total.y","Proportion.y"
+"1","Airway epithelium","ground truth",13297,88266,0.150646908209277,"predicted",152,88266,0.00172206738721592
+"2","Alveolar epithelium","ground truth",27742,88266,0.314299956948315,"predicted",40617,88266,0.460165862279927
+"3","Blood vessels","ground truth",4102,88266,0.046473160673419,"predicted",3811,88266,0.0431763079781569
+"4","Fibroblast lineage","ground truth",9281,88266,0.105148075136519,"predicted",11579,88266,0.131183014977455
+"5","Lymphatic EC","ground truth",10,88266,0.000113293907053679,"predicted",0,88266,0
+"6","Lymphoid","ground truth",20040,88266,0.227040989735572,"predicted",21636,88266,0.245122697301339
+"7","Myeloid","ground truth",11601,88266,0.131432261572973,"predicted",9131,88266,0.103448666530714
+"8","Smooth muscle","ground truth",1304,88266,0.0147735254797997,"predicted",1330,88266,0.0150680896381393
+"9","unassigned","ground truth",626,88266,0.00709219858156028,"predicted",10,88266,0.000113293907053679
+"10","Unknown","ground truth",263,88266,0.00297962975551175,"predicted",0,88266,0
