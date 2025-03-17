@@ -1,7 +1,34 @@
-copy_number <- read.table('/Users/bbia0648/SST/SST/SST/TCGA-BRCA.gistic.tsv', header = T, fill = T, sep = '\t', check.names = F)
-m <- readRDS('/Users/bbia0648/SST/SST/SST/all_nncorr_0603.rds')
-nn <- readRDS('/Users/bbia0648/SST/SST/SST/all_nn_0301.rds')
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(janitor)
+
+copy_number <- read.table('TCGA-BRCA.gistic.tsv', header = T, fill = T, sep = '\t', check.names = F)
+m <- readRDS('all_nncorr_0603.rds')
+nn <- readRDS('all_nn_0301.rds')
 nn <- rbind(nn, as.data.frame(m))
+
+TCGA_patient <- read_excel("TCGA_patient.xlsx", col_names = FALSE)
+
+tcga_clinical_full <- read.delim("/Users/bbia0648/SST/SST/SST/BRCA.clin.merged.txt", header=FALSE) %>%
+  t() %>%
+  data.table::as.data.table() %>%
+  row_to_names(1)
+
+
+bc_pat_luminal <- tcga_clinical_full %>%
+  filter( (patient.breast_carcinoma_estrogen_receptor_status=="positive" &
+             patient.breast_carcinoma_progesterone_receptor_status=="positive") |
+            (patient.breast_carcinoma_estrogen_receptor_status=="positive" &
+               patient.breast_carcinoma_progesterone_receptor_status=="negative")) %>%
+  pull(patient.bcr_patient_barcode) %>%
+  toupper()
+
+bc_pat_her2 <- tcga_clinical_full %>%
+  filter( `patient.lab_proc_her2_neu_immunohistochemistry_receptor_status`=="positive"
+  ) %>%
+  pull(patient.bcr_patient_barcode) %>%
+  toupper()
 
 a <- intersect(TCGA_patient$...1, rownames(nn))
 nn <- nn[match(a, rownames(nn)), ]
@@ -11,7 +38,6 @@ sample_id <- sub("\\-01.*", "", sample_id)
 
 a <- intersect(sample_id, rownames(nn))
 a <- intersect(a, bc_pat_luminal)
-a <- intersect(a, bc_pat_tnbc)
 a <- intersect(a, bc_pat_her2)
 a1 <- match(a, sample_id)
 
