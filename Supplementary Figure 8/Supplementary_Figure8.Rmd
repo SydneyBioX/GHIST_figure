@@ -1,0 +1,280 @@
+---
+title: "Supplementary figure 8"
+date: "2025-4-29"
+editor_options: 
+  chunk_output_type: console
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Loading
+```{r}
+### Please download the required files for Supplementary Figure 8 from dropbox: https://www.dropbox.com/scl/fo/hs5p6te858d232wojo7dy/AH7YzDNr4lXphoqRvlp5d8w?rlkey=vvnqt96n070a136dsfn7viw2z&st=cq5fezrl&dl=0
+```
+
+## Libraries
+```{r}
+suppressPackageStartupMessages({
+  # Load required packages
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  library(scran)
+})
+
+minMaxScaler <- function(x) {
+  (x-min(x, na.rm=T))/(max(x, na.rm=T)-min(x, na.rm=T))
+}
+rename <- dplyr::rename
+select <- dplyr::select
+slice <- dplyr::slice
+
+# Set ggplot theme
+ggthemr_reset()
+ggthemr('pale')
+mycolors <- c("#999999", "#0072B2", "#E69F00", "#F0E442", "#D9B3FF", "#009E73",  
+               "#D55E00", "#5D8AA8", "#CC79A7", "#56B4E9",
+              "#F3B3A6", "#A5AB81", "#B2182B", "#4393C3", "#CDBE6B", 
+              "#80CDC1", "#F4A582", "#BABABA", "#CCEBC5", "#DECBE4",
+              "#FDDFDF", "#B3DE69", "#FDBF6F", "#CCECE6", "#FB8072")
+
+dl_method_pal <- c(
+  "THItoGene" ="#BA7FB5", 
+  "DeepPT"="#80B1D2", 
+  "DeepSpaCE"="#F18072",
+  "ST-Net"="#8CD0C3",
+  "HisToGene"="#f1c232",
+  "Hist2ST"="#F9B063",
+  "GeneCodeR"="#BCB9D8",
+  "iStar"= "#B3D46B",
+  "GHIST" = "#B2182B"
+  )
+
+mypalette <- define_palette(
+  swatch = mycolors,
+  gradient = c(lower = mycolors[1L], upper = mycolors[3L])
+)
+
+ggthemr(mypalette)
+theme_update(panel.grid.major = element_line(linetype="dotted"))
+
+th <-   theme(text=element_text(size=16),
+                axis.text.x = element_text(angle = 0, hjust = 0.5),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                panel.background = element_rect(colour = "black", size=0.7, fill=NA))
+
+```
+
+
+## Data
+
+Load data for HER2ST dataset
+
+```{r}
+# Load data
+# Get all expression and prediction data of the comparison spot-based SGE prediction methods
+comb_pred_dat <- readRDS("./her2st_comb_pred_dat_8.rds") %>%
+  mutate(model_id = ifelse(model_id =="genecoder_i500_j500",
+                           "GeneCodeR", model_id))
+# Get calculated metrics
+pred_feat_cor <- readRDS("./her2st_pred_feat_cor_8.rds")
+
+# Get GHIST metrics
+ghist_pred_feat_cor <- readRDS("./ghist_pred_feat_cor.rds") %>%
+  mutate(model_id = case_when(model_id == "Proposed" ~ "GHIST",
+    TRUE ~ model_id
+  ))
+# Combine calculated metrics of comparison methods with GHIST
+pred_feat_cor <- rbind(pred_feat_cor, ghist_pred_feat_cor)
+
+# Get original gene expression per patch
+deeppt_exprs_df <- read.csv("./processed_expr.csv")
+
+# Highly Variable Genes
+# use methods from scran (Lun, McCarthy, and Marioni 2016) to identify a set of top highly variable genes (HVGs)
+dec_her2st <- modelGeneVar(deeppt_exprs_df %>%
+                             select(-X) %>%
+                             t())
+# Get the top 10% of genes.
+hv_genes <- getTopHVGs(dec_her2st, prop=.100)
+
+# Get original gene expression from a sample method
+deeppt_comb_pred_dat <- comb_pred_dat%>%
+  filter(model_id=="DeepPT")
+```
+
+*comb_pred_dat* is a dataframe with the following columns:
+
+- img_id: id of image
+- model_id: the name of method predicting gene expression
+- patch_id: id of image patch, containing image + patch coordinates
+- pred_type: whether the evaluation metrics were calculated on the "train", "test" or 
+"validation" sets
+- train_fold: an id for the fold the model was trained and tested on
+- gene: name of the gene that was predicted
+- pred: predicted gene expression count
+- exprs: ground truth gene expression count
+
+```{r}
+glimpse(comb_pred_dat)
+```
+
+*pred_feat_cor* is a dataframe with the following columns:
+
+- img_id: id of image
+- model_id: the name of method predicting gene expression
+- gene: name of the gene that was predicted
+- pred_type: whether the evaluation metrics were calculated on the "train", "test" or 
+"validation" sets
+- train_fold: an id for the fold the model was trained and tested on
+- cor_pearson: Pearson correlation
+- cor_spearman: Spearman correlation
+- var_exprs: variance of the gene expression data the model was trained on
+- var_exprs_orig: variance of the ground truth gene expression counts
+- var_pred: variance of the predicted gene expression
+- mean_exprs: mean of the gene expression data the model was trained on
+- mean_exprs_orig: mean of the ground truth gene expression counts
+- mean_pred: mean of the predicted gene expression
+- rmse: root mean squared error
+- mi: mutual information
+- js_div: Jensen-Shannon divergence
+- nrmse_range: RMSE normalised using the range of the data
+- nrmse_sd: RMSE normalised using the standard deviation of data
+- ssim: structural similarity index
+- auc_n: original ground truth gene expression is binarised by $GE <= n$ and $GE > n$. 
+auc_n represents the auc of the predicted gene expression distinguishing the binarisation of the original gene expression
+
+```{r}
+glimpse(pred_feat_cor)
+```
+
+### Load SVG
+```{r}
+svg_genes <- readRDS("./her2st_SVG_filter_top20.rds") 
+```
+
+```{r}
+# Get GHIST predictions and reformat
+ghist_comb_pred_dat <- readRDS("./ghist_comb_pred_dat.rds")
+ghist_comb_pred_dat$exprs<- NULL
+ghist_comb_pred_dat <- ghist_comb_pred_dat %>%
+  left_join(deeppt_comb_pred_dat %>% select(img_id, gene, patch_id, exprs), 
+            by = c("img_id", "gene", "patch_id"))
+
+# Normalized gene expression used by GHIST
+ghist_comb_pred_dat$exprs <- log1p(ghist_comb_pred_dat$exprs)
+ghist_comb_pred_dat$model_id <- gsub("Proposed", "GHIST", ghist_comb_pred_dat$model_id)
+
+# Combine comparison methods
+comb_pred_dat_all <- rbind(comb_pred_dat, ghist_comb_pred_dat)
+# Get exprs and pred gene standardization
+comb_pred_dat_all$exprs <- as.numeric(unlist(comb_pred_dat_all$exprs))
+comb_pred_dat_all$pred <- as.numeric(unlist(comb_pred_dat_all$pred))
+comb_pred_dat_all_norm <- comb_pred_dat_all %>%
+  dplyr::group_by(gene, model_id) %>%
+  dplyr::mutate(
+    exprs_min = min(exprs, na.rm = TRUE),
+    exprs_max = max(exprs, na.rm = TRUE),
+    exprs_norm = (exprs - exprs_min) / (exprs_max - exprs_min + 1e-12),
+    pred_min = min(pred, na.rm = TRUE),
+    pred_max = max(pred, na.rm = TRUE),
+    pred_norm = (pred - pred_min) / (pred_max - pred_min + 1e-12)
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(-exprs_min, -exprs_max, -pred_min, -pred_max)
+
+comb_pred_dat_all_norm$exprs<- as.numeric(unlist(comb_pred_dat_all_norm$exprs))
+## Feature Metrics - RMSE
+comb_pred_dat_all_norm_metrics <- comb_pred_dat_all_norm %>%
+  # Get x & y coordinates for SSIM calculation
+  separate(
+    patch_id ,
+    into = c("img_id", "x_y"),
+    sep = "_",
+    convert = TRUE,
+    remove=FALSE
+  ) %>%
+  separate(x_y, into = c("x", "y"), sep = "x") %>%
+  group_by(gene, pred_type, train_fold, model_id, img_id) %>%
+  summarise(
+    rmse = sqrt(sum((pred_norm - exprs_norm) ^ 2) / n()),
+    .groups = "drop"
+  )
+```
+
+### Supplementary Figure 8 RMSE - standardized
+```{r}
+rmse_df <- comb_pred_dat_all_norm_metrics%>%
+  arrange(factor(model_id, levels=c("GHIST", "iStar", "THItoGene", "Hist2ST", "DeepPT", "DeepSpaCE", "GeneCodeR", "HisToGene", "ST-Net")))
+rmse_df$model_id <- factor(rmse_df$model_id, levels = unique(rmse_df$model_id))
+
+fig_rmse <- rmse_df %>%
+  filter(pred_type == "test") %>%
+  pivot_longer(cols=c("rmse"),
+               names_to="metric",
+               values_to="value") %>%
+  mutate(metric = factor(metric, levels = c("rmse"))) %>%
+  mutate(metric=case_when(
+    metric=="rmse" ~ "RMSE",
+    TRUE ~ "other"
+  ) %>%
+    factor(., levels=c("RMSE"))) %>%
+  ggplot() +
+  aes(x=model_id, y=value, fill=model_id, col=model_id) +
+  geom_violin(alpha=0.2) +
+  geom_boxplot(alpha=0.5, width=0.3) +
+  facet_wrap(~metric, nrow=2, scales="free") +
+  coord_flip()+
+  scale_color_manual(values=dl_method_pal)+
+  scale_fill_manual(values=dl_method_pal)+
+  theme(legend.position = "none") +
+  th + 
+  labs(x="", y="")
+
+fig_rmse
+```
+
+### Supplementary Figure 8 SVGs RMSE - standardized
+```{r}
+rmse_svg_df <- rmse_df %>%
+  mutate(gene_set = "All Genes") %>%
+  bind_rows(
+    rmse_df %>%
+      ungroup() %>%
+      semi_join(svg_genes, by = c("gene", "img_id")) %>%
+      mutate(gene_set = "SVGs")
+  )
+
+fig_SVG_rmse <- rmse_svg_df %>%
+  filter(pred_type == "test") %>%
+  filter(gene_set %in% c("SVGs")) %>%
+  pivot_longer(cols=c("rmse"),
+               names_to="metric",
+               values_to="value") %>%
+  mutate(metric = factor(metric, levels = c("rmse"))) %>%
+  mutate(metric=case_when(
+    metric=="rmse" ~ "RMSE",
+    TRUE ~ "other"
+  ) %>%
+    factor(., levels=c("RMSE"))) %>%
+  ggplot() +
+  aes(x=model_id, y=value, fill=model_id, col=model_id) +
+  geom_violin(alpha=0.2) +
+  geom_boxplot(alpha=0.5, width=0.3) +
+  facet_wrap(~metric, nrow=2, scales="free") +
+  coord_flip()+
+  scale_color_manual(values=dl_method_pal)+
+  scale_fill_manual(values=dl_method_pal)+
+  theme(legend.position = "none") +
+  th + 
+  labs(x="", y="")
+
+fig_SVG_rmse
+```
+

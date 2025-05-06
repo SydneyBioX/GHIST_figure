@@ -1,0 +1,179 @@
+---
+title: "Supplementary figure 7"
+date: "2025-4-29"
+editor_options: 
+  chunk_output_type: console
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Loading
+```{r}
+### Please download the required files for Supplementary Figure 7 from dropbox: https://www.dropbox.com/scl/fo/1unqeebj4jju63fkpyii0/AKE0vmpBnwqDxOBB2udp_e8?rlkey=z6znxqucmk4847tglsdwcqy35&st=i26pbvxd&dl=0
+```
+
+## Libraries
+```{r}
+suppressPackageStartupMessages({
+  # Load required packages
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  library(scran)
+  library(ggthemr)
+})
+
+minMaxScaler <- function(x) {
+  (x-min(x, na.rm=T))/(max(x, na.rm=T)-min(x, na.rm=T))
+}
+rename <- dplyr::rename
+select <- dplyr::select
+slice <- dplyr::slice
+
+# Set ggplot theme
+ggthemr_reset()
+ggthemr('pale')
+mycolors <- c("#999999", "#0072B2", "#E69F00", "#F0E442", "#D9B3FF", "#009E73",  
+               "#D55E00", "#5D8AA8", "#CC79A7", "#56B4E9",
+              "#F3B3A6", "#A5AB81", "#B2182B", "#4393C3", "#CDBE6B", 
+              "#80CDC1", "#F4A582", "#BABABA", "#CCEBC5", "#DECBE4",
+              "#FDDFDF", "#B3DE69", "#FDBF6F", "#CCECE6", "#FB8072")
+
+dl_method_pal <- c(
+  "THItoGene" ="#BA7FB5", 
+  "DeepPT"="#80B1D2", 
+  "DeepSpaCE"="#F18072",
+  "ST-Net"="#8CD0C3",
+  "HisToGene"="#f1c232",
+  "Hist2ST"="#F9B063",
+  "GeneCodeR"="#BCB9D8",
+  "iStar"= "#B3D46B",
+  "GHIST" = "#B2182B"
+  )
+
+mypalette <- define_palette(
+  swatch = mycolors,
+  gradient = c(lower = mycolors[1L], upper = mycolors[3L])
+)
+
+ggthemr(mypalette)
+theme_update(panel.grid.major = element_line(linetype="dotted"))
+
+th <-   theme(text=element_text(size=16),
+                axis.text.x = element_text(angle = 0, hjust = 0.5),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                panel.background = element_rect(colour = "black", size=0.7, fill=NA))
+
+```
+
+
+## Data
+
+Load data for HER2ST dataset
+
+```{r}
+# Load data
+# Get calculated metrics
+pred_feat_cor <- readRDS("./her2st_pred_feat_cor_8.rds")
+
+# Get GHIST metrics
+ghist_pred_feat_cor <- readRDS("./ghist_pred_feat_cor.rds") %>%
+  mutate(model_id = case_when(model_id == "Proposed" ~ "GHIST",
+    TRUE ~ model_id
+  ))
+# Combine calculated metrics of comparison methods with GHIST
+pred_feat_cor <- rbind(pred_feat_cor, ghist_pred_feat_cor)
+
+# Get original gene expression per patch
+deeppt_exprs_df <- read.csv("./processed_expr.csv")
+
+# Highly Variable Genes
+# use methods from scran (Lun, McCarthy, and Marioni 2016) to identify a set of top highly variable genes (HVGs)
+dec_her2st <- modelGeneVar(deeppt_exprs_df %>%
+                             select(-X) %>%
+                             t())
+# Get the top 10% of genes.
+hv_genes <- getTopHVGs(dec_her2st, prop=.100)
+
+# Load SVGs
+svg_genes <- readRDS("./her2st_SVG_filter_top20.rds") 
+```
+
+#### Supplementary Figure 7
+
+PCC and SSIM violin and boxplots for each method in HER2+ dataset for all genes as well as for HVGs and SVGs only.
+
+```{r fig.height=6, fig.width=11}
+# Plot Boxplots of Correlations
+pred_gene_msr_df <- pred_feat_cor %>%
+  mutate(gene_set = "All Genes") %>%
+  bind_rows(
+    pred_feat_cor %>%
+      ungroup() %>%
+      filter(gene %in% hv_genes) %>%
+      mutate(gene_set = "HVGs")
+  ) %>%
+  bind_rows(
+    pred_feat_cor %>%
+      ungroup() %>%
+      semi_join(svg_genes, by = c("gene", "img_id")) %>%
+      mutate(gene_set = "SVGs")
+  ) %>%
+  select(gene, pred_type, train_fold, model_id,
+         img_id, cor_pearson, nrmse_sd, js_div, mi, ssim, auc_0,
+         gene_set) %>%
+  # Average image over each patient
+  group_by(gene, pred_type, train_fold, gene_set, model_id) %>%
+  summarise_if(is.numeric, function(col) mean(col,na.rm = T)) %>%
+  # Average all folds and patients over each gene
+  group_by(pred_type, gene, gene_set, model_id) %>%
+  summarise_if(is.numeric, function(col) mean(col,na.rm = T))
+
+pred_gene_hvg_svg <- pred_gene_msr_df %>%
+  filter(pred_type == "test") %>%
+  pivot_longer(cols=c("cor_pearson","ssim"),
+               names_to="metric",
+               values_to="value") %>%
+  mutate(metric = factor(metric, levels = c("cor_pearson","ssim"))) %>%
+  mutate(metric=ifelse(metric=="ssim","SSIM",
+                       ifelse(metric=="cor_pearson","PCC",metric)))
+
+pred_gene_hvg_svg <- pred_gene_hvg_svg%>%
+  arrange(factor(model_id, levels=c("ST-Net", "HisToGene", "GeneCodeR", "DeepSpaCE", "DeepPT", "Hist2ST", "THItoGene","iStar", "GHIST")))
+pred_gene_hvg_svg$model_id <- factor(pred_gene_hvg_svg$model_id, levels = unique(pred_gene_hvg_svg$model_id))
+
+p_hvg_cor_ssim <- pred_gene_hvg_svg %>%
+  ggplot() +
+  aes(x = gene_set,
+      y = value,
+      fill = gene_set,
+      col = gene_set) +
+  geom_violin(alpha = 0.2,
+              width = 1,
+              position = position_dodge(width = 0.6)) +
+  geom_boxplot(alpha = 0.5,
+               width = 0.3,
+               position = position_dodge(width = 0.6)) +
+  scale_color_manual(values = c("All Genes" = "#4393C3", "HVGs" = "#009E73", "SVGs" = "#f6b000")) + 
+  scale_fill_manual(values = c("All Genes" = "#4393C3", "HVGs" = "#009E73", "SVGs" = "#f6b000")) +
+  facet_grid(cols=vars(model_id),rows=vars(metric),
+             switch="y") +
+  theme(
+    legend.position = "bottom",
+    strip.placement = "outside",
+    axis.ticks.x=element_blank(),
+    axis.text.x=element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  ) +
+  labs(x="",y="",
+       col="Gene Set",fill="Gene Set")
+
+p_hvg_cor_ssim
+```
